@@ -2,7 +2,9 @@ package br.chat.websocket.chat;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -15,6 +17,8 @@ public class ChatHandler extends TextWebSocketHandler {
     private final Map<String, WebSocketSession> sessionsActives = new ConcurrentHashMap<>();
     private final Map<String, String> partnersActives = new ConcurrentHashMap<>();
 
+    private final Queue<String> waitingQueue = new ConcurrentLinkedDeque<>();
+
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception{
         String sessionId = session.getId();
@@ -22,16 +26,17 @@ public class ChatHandler extends TextWebSocketHandler {
 
         System.out.println("Nova Conexão: " + sessionId + " | total de sessões: " + sessionsActives.size());
 
-        if(sessionsActives.size() % 2 == 0){
-            String partenerId = findWaitingPartner(sessionId);
-            if(Objects.nonNull(partenerId)){
-                partnersActives.put(sessionId, partenerId);
-                partnersActives.put(partenerId, sessionId);
+        String partnerId = findLonelySession(sessionId);
 
-                System.out.println("✅ Pairing feito: " + sessionId + " <-> " + partenerId);
+        if(partnerId != null){
+            if(Objects.nonNull(partnerId)){
+                partnersActives.put(sessionId, partnerId);
+                partnersActives.put(partnerId, sessionId);
+
+                System.out.println("✅ Pairing feito: " + sessionId + " <-> " + partnerId);
 
                 sendMessage(session, "Conectado! Você está sozinho na sala.");
-                sendMessage(sessionsActives.get(partenerId), "Conectado! Alguém está na sala com você!");
+                sendMessage(sessionsActives.get(partnerId), "Conectado! Alguém está na sala com você!");
             }
         }else{
             sendMessage(session, "Aguardado outra pessoa conectar...");
@@ -80,10 +85,14 @@ public class ChatHandler extends TextWebSocketHandler {
     }
 
 
-    private String findWaitingPartner(String myId){
-        for(String id : sessionsActives.keySet()){
-            if(id.equals(myId) && !partnersActives.containsKey(id)){
-                return id;
+   private String findLonelySession(String excludeId) {
+        for (Map.Entry<String, WebSocketSession> entry : sessionsActives.entrySet()) {
+            String id = entry.getKey();
+            if (!id.equals(excludeId) && !partnersActives.containsKey(id)) {
+                WebSocketSession s = entry.getValue();
+                if (s.isOpen()) {
+                    return id;
+                }
             }
         }
         return null;
