@@ -29,15 +29,15 @@ public class ChatHandler extends TextWebSocketHandler {
         String partnerId = findLonelySession(sessionId);
 
         if(partnerId != null){
-            if(Objects.nonNull(partnerId)){
+
                 partnersActives.put(sessionId, partnerId);
                 partnersActives.put(partnerId, sessionId);
 
-                System.out.println("✅ Pairing feito: " + sessionId + " <-> " + partnerId);
+                System.out.println("Pairing feito: " + sessionId + " <-> " + partnerId);
 
                 sendMessage(session, "Conectado! Você está sozinho na sala.");
                 sendMessage(sessionsActives.get(partnerId), "Conectado! Alguém está na sala com você!");
-            }
+
         }else{
             sendMessage(session, "Aguardado outra pessoa conectar...");
         }
@@ -49,20 +49,20 @@ public class ChatHandler extends TextWebSocketHandler {
         String myId = session.getId();
         String partnerId = partnersActives.get(myId);
 
-        System.out.println("📨 Mensagem recebida de " + myId + " | Partner: " + partnerId + " | Texto: " + message.getPayload());
+        System.out.println("Mensagem recebida de " + myId + " | Partner: " + partnerId + " | Texto: " + message.getPayload());
 
         if(partnerId != null && sessionsActives.containsKey(partnerId)){
             WebSocketSession partnerSession = sessionsActives.get(partnerId);
 
             if(partnerSession.isOpen()){
                 partnerSession.sendMessage(new TextMessage(message.getPayload()));
-                System.out.println("✅ Mensagem ENCAMINHADA para " + partnerId);
+                System.out.println("Mensagem enviada para " + partnerId);
             }else{
-                System.out.println("❌ Partner fechado: " + partnerId);
+                System.out.println("Partner fechado: " + partnerId);
             }
 
         }else{
-            System.out.println("❌ Nenhum partner encontrado para " + myId);
+            System.out.println("Nenhum partner encontrado para " + myId);
             sendMessage(session, "Ainda não tem parceiro conectado.");
         }
     }
@@ -73,7 +73,7 @@ public class ChatHandler extends TextWebSocketHandler {
         String partnerId = partnersActives.get(myId);
         sessionsActives.remove(myId);
 
-        System.out.println("🔴 Desconexão: " + myId);
+        System.out.println("Saiu do chat: " + myId);
 
         if(partnerId != null){
             WebSocketSession partner = sessionsActives.get(partnerId);
