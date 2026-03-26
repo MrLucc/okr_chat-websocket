@@ -23,7 +23,7 @@ public class ChatHandler extends TextWebSocketHandler {
 
         System.out.println("Nova conexão: " + sessionId);
 
-        if (sessionsActives.size() % 2 == 0) {
+
             String partnerId = findLonelySession(sessionId);
             if (partnerId != null) {
                 partnersActives.put(sessionId, partnerId);
@@ -32,7 +32,7 @@ public class ChatHandler extends TextWebSocketHandler {
                 sendMessage(session, "Conectado! Alguém está na sala com você!");
                 sendMessage(sessionsActives.get(partnerId), "Conectado! Alguém está na sala com você!");
             }
-        } else {
+         else {
             sendMessage(session, "Conectado! Você está sozinho na sala.");
         }
 
