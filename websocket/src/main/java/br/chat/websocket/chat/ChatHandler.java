@@ -1,11 +1,9 @@
 package br.chat.websocket.chat;
 
 import java.util.Map;
-import java.util.Objects;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
 
+import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -16,58 +14,70 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 public class ChatHandler extends TextWebSocketHandler {
     private final Map<String, WebSocketSession> sessionsActives = new ConcurrentHashMap<>();
     private final Map<String, String> partnersActives = new ConcurrentHashMap<>();
-
-    private final Queue<String> waitingQueue = new ConcurrentLinkedDeque<>();
+    private final Map<String, String> usernames = new ConcurrentHashMap<>();
 
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception{
+    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String sessionId = session.getId();
         sessionsActives.put(sessionId, session);
 
-        System.out.println("Nova Conexão: " + sessionId + " | total de sessões: " + sessionsActives.size());
+        System.out.println("Nova conexão: " + sessionId);
 
-        String partnerId = findLonelySession(sessionId);
 
-        if(partnerId != null){
-
+            String partnerId = findLonelySession(sessionId);
+            if (partnerId != null) {
                 partnersActives.put(sessionId, partnerId);
                 partnersActives.put(partnerId, sessionId);
 
-                System.out.println("Pairing feito: " + sessionId + " <-> " + partnerId);
-
-                sendMessage(session, "Conectado! Você está sozinho na sala.");
+                sendMessage(session, "Conectado! Alguém está na sala com você!");
                 sendMessage(sessionsActives.get(partnerId), "Conectado! Alguém está na sala com você!");
-
-        }else{
-            sendMessage(session, "Aguardado outra pessoa conectar...");
-        }
-
-    }
-
-    @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception{
-        String myId = session.getId();
-        String partnerId = partnersActives.get(myId);
-
-        System.out.println("Mensagem recebida de " + myId + " | Partner: " + partnerId + " | Texto: " + message.getPayload());
-
-        if(partnerId != null && sessionsActives.containsKey(partnerId)){
-            WebSocketSession partnerSession = sessionsActives.get(partnerId);
-
-            if(partnerSession.isOpen()){
-                partnerSession.sendMessage(new TextMessage(message.getPayload()));
-                System.out.println("Mensagem enviada para " + partnerId);
-            }else{
-                System.out.println("Partner fechado: " + partnerId);
             }
+         else {
+            sendMessage(session, "Conectado! Você está sozinho na sala.");
+        }
 
-        }else{
-            System.out.println("Nenhum partner encontrado para " + myId);
-            sendMessage(session, "Ainda não tem parceiro conectado.");
+        sendMessage(session, "Digite seu nome para começar:");
+    }
+
+    @Override
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        String myId = session.getId();
+        String text = message.getPayload().trim();
+
+        if (text.isEmpty()) {
+            return;
+        }
+
+        String partnerId = partnersActives.get(myId);
+        if (partnerId == null) {
+            sendMessage(session, "Você continua sozinho na sala.");
+            return;
+        }
+
+        if (!usernames.containsKey(myId)) {
+            String username = text.trim();
+            usernames.put(myId, username);
+
+            sendMessage(session, "Nome definido como: " + username);
+            System.out.println("Nome definido: " + username + " (sessão " + myId + ")");
+            return;
+        }
+
+
+        String username = usernames.get(myId);
+        WebSocketSession partner = sessionsActives.get(partnerId);
+
+        if (partner != null && partner.isOpen()) {
+            String formattedMessage = username + ": " + text;
+            partner.sendMessage(new TextMessage(formattedMessage));
+            System.out.println("Enviado " + username + ": " + text);
+        } else {
+            sendMessage(session, "O amigo desconectou.");
         }
     }
 
     @Override
+    @NullMarked
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception{
         String myId = session.getId();
         String partnerId = partnersActives.get(myId);
@@ -98,11 +108,11 @@ public class ChatHandler extends TextWebSocketHandler {
         return null;
     }
 
-    private void sendMessage(WebSocketSession session, String text) throws Exception{
+   private void sendMessage(WebSocketSession session, String text) throws Exception{
         if(session != null && session.isOpen()){
             session.sendMessage(new TextMessage(text));
         }
-    }
+   }
     
     
 }

@@ -7,12 +7,18 @@
 <body>
     <h2>Chat WebSocket</h2>
     <div id="messages" style="height:400px; overflow-y:scroll; border:1px solid #ccc; padding:10px; margin-bottom:10px; background:#f9f9f9;"></div>
-    
+
     <input id="input" placeholder="Digite sua mensagem..." style="width:70%; padding:8px;" />
     <button onclick="sendMessage()" style="padding:8px;">Enviar</button>
 
     <script>
-        const ws = new WebSocket("ws://localhost:8080/chat");
+        // Detecta automaticamente se está usando HTTP ou HTTPS (ngrok usa https)
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = `${protocol}://${window.location.host}/chat`;
+
+        console.log("🔗 Tentando conectar no WebSocket:", wsUrl);
+
+        const ws = new WebSocket(wsUrl);
         const messagesDiv = document.getElementById("messages");
 
         function appendMessage(text) {
@@ -22,22 +28,40 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
+        // === Eventos do WebSocket ===
+        ws.onopen = function() {
+            console.log("✅ WebSocket conectado com sucesso!");
+        };
+
         ws.onmessage = function(event) {
             appendMessage(event.data);
         };
 
+        ws.onerror = function(err) {
+            console.error("Erro no WebSocket:", err);
+            appendMessage("Erro ao conectar no servidor. Recarregue a página.");
+        };
+
+        ws.onclose = function() {
+            console.log("WebSocket fechado");
+            appendMessage("Conexão fechada. Recarregue a página para tentar novamente.");
+        };
+
+        // === Enviar mensagem ===
         function sendMessage() {
             const input = document.getElementById("input");
             const text = input.value.trim();
-            if (text) {
+
+            if (!text) return;
+
+            if (ws.readyState === WebSocket.OPEN) {
                 ws.send(text);
-                appendMessage("Você: " + text);   // echo local (melhor UX)
+                appendMessage("Você: " + text);        // echo local
                 input.value = "";
+            } else {
+                appendMessage("Ainda não está conectado ao chat.");
             }
         }
-
-        // Opcional: reconectar se cair (boa prática)
-        ws.onclose = () => console.log("WebSocket fechado - recarregue a página");
     </script>
 </body>
 </html>
